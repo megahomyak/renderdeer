@@ -1,31 +1,38 @@
+pub struct Position(pub isize);
+pub struct Size(pub usize);
+
 mod unit_interval {
     #[derive(Clone, Copy)]
-    pub struct UnitInterval<F=f64>(F);
+    pub struct UnitInterval(f64);
 
-    impl<F> UnitInterval<F> {
-        pub fn read(&self) -> &F {
+    impl UnitInterval {
+        pub fn new(v: f64) -> Option<Self> {
+            if v >= 0.0 && v <= 1.0 {
+                Some(Self(v))
+            } else {
+                None
+            }
+        }
+
+        pub fn read(&self) -> f64 {
+            self.0
+        }
+    }
+}
+pub use unit_interval::UnitInterval;
+
+mod positive {
+    pub struct Unsigned<N>(N);
+
+    impl<N> Unsigned<N> {
+        pub fn read(&self) -> &N {
             &self.0
         }
     }
 
-    trait ZeroOne {
-        fn zero() -> Self;
-        fn one() -> Self;
-    }
-
-    impl ZeroOne for f64 {
-        fn one() -> Self {
-            1.0
-        }
-
-        fn zero() -> Self {
-            0.0
-        }
-    }
-
-    impl<F: PartialOrd + ZeroOne> UnitInterval<F> {
-        pub fn new(v: F) -> Option<Self> {
-            if v >= F::zero() && v <= F::one() {
+    impl Unsigned<f64> {
+        pub fn new(v: f64) -> Option<Self> {
+            if v >= 0.0 {
                 Some(Self(v))
             } else {
                 None
@@ -33,33 +40,28 @@ mod unit_interval {
         }
     }
 }
-pub use unit_interval::UnitInterval;
-
-mod positive {
-    pub struct Positive<N>(N);
-
-    impl<N> Positive<N> {
-        pub fn read(&self) -> &N {
-            &self.0
-        }
-    }
-}
+pub use positive::Unsigned;
 
 mod angle {
-    use super::UnitInterval;
+    use super::{UnitInterval, Unsigned};
 
     pub struct Angle(UnitInterval);
 
     impl Angle {
-        pub fn turn_left(&mut self, amount: f64) {
-            (self.0.read() + amount).fract()
+        pub fn read(&self) -> f64 {
+            self.0.read()
         }
 
-        pub fn turn_right(&mut self, amount: f64) {
+        pub fn turn_left(&mut self, amount: Unsigned<f64>) {
+            self.0 = UnitInterval::new((self.0.read() + amount.read()).fract()).unwrap();
+        }
 
+        pub fn turn_right(&mut self, amount: Unsigned<f64>) {
+            self.0 = UnitInterval::new((self.0.read() - amount.read()).fract()).unwrap();
         }
     }
 }
+pub use angle::Angle;
 
 #[derive(Clone, Copy)]
 pub struct ObjectPixel {
@@ -70,9 +72,9 @@ pub struct ObjectPixel {
 }
 
 pub struct ObjectPosition {
-    pub x: isize,
-    pub y: isize,
-    pub z: isize,
+    pub x: Position,
+    pub y: Position,
+    pub z: Position,
 }
 
 pub struct FromTopLeft<T>(pub T);
@@ -82,21 +84,26 @@ pub struct PixelPosition {
 }
 
 pub trait Image {
-    fn height(&self) -> usize;
-    fn width(&self) -> usize;
+    fn height(&self) -> Size;
+    fn width(&self) -> Size;
     fn get_pixel(&self, position: FromTopLeft<PixelPosition>) -> ObjectPixel;
 }
 
 pub trait Object {
     type Image: Image;
+    type Positions: Iterator<Item = ObjectPosition>;
 
-    fn render(&self, camera_position: ObjectPosition) -> Self::Image;
+    fn positions(&self) -> Self::Positions;
+    fn image(&self, camera_position: ObjectPosition) -> Self::Image;
 }
 
-pub struct Camera<const Width: usize, const Height: usize> {
+pub struct Camera {
     pub position: ObjectPosition,
-    pub x_bias: isize,
-    pub y_bias: isize,
+    pub x_bias: Position,
+    pub y_bias: Position,
+    pub width: Size,
+    pub height: Size,
+    pub angle: UnitInterval,
 }
 
 #[derive(Clone, Copy)]
@@ -111,7 +118,9 @@ pub struct RenderOutput<const Width: usize, const Height: usize> {
 }
 
 impl<const Width: usize, const Height: usize> Camera<Width, Height> {
-    pub fn render<O: Object>(&self, angle: UnitInterval, object: O) -> RenderOutput<Width, Height> {
+    pub fn render<O: Object>(&self, object: &O) -> RenderOutput<Width, Height> {
+        let position = object.position();
+        let image = object.image(self.position);
 
     }
 }
