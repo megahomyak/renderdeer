@@ -1,5 +1,5 @@
-pub struct Position(pub isize);
-pub struct Size(pub usize);
+pub struct Position(pub f64);
+pub struct Distance(pub Unsigned<f64>);
 
 mod unit_interval {
     #[derive(Clone, Copy)]
@@ -43,7 +43,7 @@ mod positive {
 pub use positive::Unsigned;
 
 mod angle {
-    use super::{UnitInterval, Unsigned};
+    use super::*;
 
     pub struct Angle(UnitInterval);
 
@@ -77,33 +77,46 @@ pub struct ObjectPosition {
     pub z: Position,
 }
 
+impl ObjectPosition {
+    pub fn distance(&self, other: Self) -> Distance {
+        let x = (self.x.0 - other.x.0).abs();
+        let y = (self.y.0 - other.y.0).abs();
+        let z = (self.z.0 - other.z.0).abs();
+
+        Distance(Unsigned::new(x.hypot(y).hypot(z)).unwrap())
+    }
+}
+
 pub struct FromTopLeft<T>(pub T);
 pub struct PixelPosition {
     pub x: UnitInterval,
     pub y: UnitInterval,
 }
 
-pub trait Image {
-    fn height(&self) -> Size;
-    fn width(&self) -> Size;
-    fn get_pixel(&self, position: FromTopLeft<PixelPosition>) -> ObjectPixel;
+pub trait Background {
+    fn get_pixel(&self, position: FromTopLeft<PixelPosition>) -> RenderPixel;
 }
 
 pub trait Object {
-    type Image: Image;
-    type Positions: Iterator<Item = ObjectPosition>;
+    fn position(&self) -> Position;
+    fn height(&self) -> Distance;
+    fn width(&self) -> Distance;
+    fn get_pixel(&self, position: FromTopLeft<PixelPosition>) -> ObjectPixel;
+}
 
-    fn positions(&self) -> Self::Positions;
-    fn image(&self, camera_position: ObjectPosition) -> Self::Image;
+pub struct CameraAngle {
+    pub x: Angle,
+    pub y: Angle,
 }
 
 pub struct Camera {
     pub position: ObjectPosition,
     pub x_bias: Position,
     pub y_bias: Position,
-    pub width: Size,
-    pub height: Size,
-    pub angle: UnitInterval,
+    pub width: Distance,
+    pub height: Distance,
+    pub angle: CameraAngle,
+    pub tilt: Angle,
 }
 
 #[derive(Clone, Copy)]
@@ -117,10 +130,23 @@ pub struct RenderOutput<const Width: usize, const Height: usize> {
     pub image: [[RenderPixel; Width]; Height],
 }
 
-impl<const Width: usize, const Height: usize> Camera<Width, Height> {
-    pub fn render<O: Object>(&self, object: &O) -> RenderOutput<Width, Height> {
-        let position = object.position();
-        let image = object.image(self.position);
+impl Camera {
+    pub fn render<'a, const Width: usize, const Height: usize>(
+        &self,
+        background: impl Background,
+        objects: impl Iterator<Item = &'a (impl Object + 'a)>,
+    ) -> RenderOutput<Width, Height> {
+        use std::array::from_fn as array;
+        let image: [[RenderPixel; Width]; Height] = array(|height| {
+            array(|width| {
+                background.get_pixel(FromTopLeft(PixelPosition {
+                    x: UnitInterval::new(width as f64 / Width as f64).unwrap(),
+                    y: UnitInterval::new(height as f64 / Height as f64).unwrap(),
+                }))
+            })
+        });
+        for object in objects {
 
+        }
     }
 }
