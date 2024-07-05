@@ -99,13 +99,24 @@ pub trait Image {
     fn pixel(&self, position: FromTopLeft<PixelPosition>) -> Self::Pixel;
 }
 
-pub trait ImageGetter {
-    type Image;
-
-    fn image(&self, camera_angle: CameraAngle) -> Self::Image;
+pub struct CameraToObjectRelation<'a> {
+    camera: &'a Camera,
 }
 
-pub struct Object<Image> {
+impl<'a> CameraToObjectRelation<'a> {
+    pub fn angle(&self) -> CameraAngle {
+
+    }
+}
+
+pub trait ImageGetter {
+    type Image: Image;
+
+    fn image(&self, relation: &CameraToObjectRelation) -> Self::Image;
+    fn tilt(&self) -> Angle;
+}
+
+pub struct Object<ImageGetter> {
     pub position: ObjectPosition,
     pub height: Distance,
     pub width: Distance,
@@ -139,10 +150,10 @@ pub struct RenderOutput<const Width: usize, const Height: usize> {
 }
 
 impl Camera {
-    pub fn render<'a, const Width: usize, const Height: usize>(
+    pub fn render<'a, const Width: usize, const Height: usize, ObjectImage: Image<Pixel = ObjectPixel>>(
         &self,
         background: impl Image<Pixel = RenderPixel>,
-        objects: impl Iterator<Item = Object<impl Image>>,
+        objects: impl Iterator<Item = Object<impl ImageGetter<Image = ObjectImage>>>,
     ) -> RenderOutput<Width, Height> {
         use std::array::from_fn as array;
         let image: [[RenderPixel; Width]; Height] = array(|height| {
@@ -158,7 +169,7 @@ impl Camera {
         let dist = |obj: &Object<_>| obj.position.distance(self.position).0.read();
         objects.sort_by(|a, b| dist(a).total_cmp(dist(b)));
         for object in objects {
-            object.image.
+            object.image_getter.image(CameraToObjectRelation { camera: self })
         }
     }
 }
