@@ -93,15 +93,23 @@ pub struct PixelPosition {
     pub y: UnitInterval,
 }
 
-pub trait Background {
-    fn get_pixel(&self, position: FromTopLeft<PixelPosition>) -> RenderPixel;
+pub trait Image {
+    type Pixel;
+
+    fn pixel(&self, position: FromTopLeft<PixelPosition>) -> Self::Pixel;
 }
 
-pub trait Object {
-    fn position(&self) -> Position;
-    fn height(&self) -> Distance;
-    fn width(&self) -> Distance;
-    fn get_pixel(&self, position: FromTopLeft<PixelPosition>) -> ObjectPixel;
+pub trait ImageGetter {
+    type Image;
+
+    fn image(&self, camera_angle: CameraAngle) -> Self::Image;
+}
+
+pub struct Object<Image> {
+    pub position: ObjectPosition,
+    pub height: Distance,
+    pub width: Distance,
+    pub image_getter: ImageGetter,
 }
 
 pub struct CameraAngle {
@@ -133,20 +141,24 @@ pub struct RenderOutput<const Width: usize, const Height: usize> {
 impl Camera {
     pub fn render<'a, const Width: usize, const Height: usize>(
         &self,
-        background: impl Background,
-        objects: impl Iterator<Item = &'a (impl Object + 'a)>,
+        background: impl Image<Pixel = RenderPixel>,
+        objects: impl Iterator<Item = Object<impl Image>>,
     ) -> RenderOutput<Width, Height> {
         use std::array::from_fn as array;
         let image: [[RenderPixel; Width]; Height] = array(|height| {
             array(|width| {
-                background.get_pixel(FromTopLeft(PixelPosition {
+                background.pixel(FromTopLeft(PixelPosition {
                     x: UnitInterval::new(width as f64 / Width as f64).unwrap(),
                     y: UnitInterval::new(height as f64 / Height as f64).unwrap(),
                 }))
             })
         });
+        let objects = objects
+            .collect::<Vec<_>>();
+        let dist = |obj: &Object<_>| obj.position.distance(self.position).0.read();
+        objects.sort_by(|a, b| dist(a).total_cmp(dist(b)));
         for object in objects {
-
+            object.image.
         }
     }
 }
