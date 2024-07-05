@@ -127,22 +127,22 @@ pub struct RenderPixel {
     pub blue: UnitInterval,
 }
 
-pub struct RenderOutput<const Width: usize, const Height: usize> {
-    pub image: [[RenderPixel; Width]; Height],
+pub struct RenderOutput<const WIDTH: usize, const HEIGHT: usize> {
+    pub image: [[RenderPixel; WIDTH]; HEIGHT],
 }
 
 impl Camera {
-    pub fn render<'a, const Width: usize, const Height: usize, ObjectImage: Image<Pixel = ObjectPixel>>(
+    pub fn render<'a, const WIDTH: usize, const HEIGHT: usize>(
         &self,
         background: impl Image<Pixel = RenderPixel>,
         objects: impl Iterator<Item = Object<impl Image>>,
-    ) -> [[RenderPixel; Width]; Height] {
+    ) -> [[RenderPixel; WIDTH]; HEIGHT] {
         use std::array::from_fn as array;
-        let image: [[RenderPixel; Width]; Height] = array(|height| {
+        let image: [[RenderPixel; WIDTH]; HEIGHT] = array(|height| {
             array(|width| {
                 background.pixel(FromTopLeft(PixelPosition {
-                    x: UnitInterval::new(width as f64 / Width as f64).unwrap(),
-                    y: UnitInterval::new(height as f64 / Height as f64).unwrap(),
+                    x: UnitInterval::new(width as f64 / WIDTH as f64).unwrap(),
+                    y: UnitInterval::new(height as f64 / HEIGHT as f64).unwrap(),
                 }))
             })
         });
