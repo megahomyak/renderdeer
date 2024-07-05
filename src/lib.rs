@@ -99,27 +99,11 @@ pub trait Image {
     fn pixel(&self, position: FromTopLeft<PixelPosition>) -> Self::Pixel;
 }
 
-pub struct CameraToObjectRelation<'a> {
-    camera: &'a Camera,
-}
-
-impl<'a> CameraToObjectRelation<'a> {
-    pub fn angle(&self) -> CameraAngle {
-
-    }
-}
-
-pub trait ImageGetter {
-    type Image: Image;
-
-    fn image(&self, relation: &CameraToObjectRelation) -> Self::Image;
-    fn tilt(&self) -> Angle;
-}
-
 pub struct Object<ImageGetter> {
     pub position: ObjectPosition,
     pub height: Distance,
     pub width: Distance,
+    pub tilt: Angle,
     pub image_getter: ImageGetter,
 }
 
