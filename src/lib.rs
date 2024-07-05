@@ -98,12 +98,14 @@ pub trait Image {
     fn pixel(&self, position: FromTopLeft<PixelPosition>) -> Self::Pixel;
 }
 
-pub struct Object<Image> {
-    pub position: ObjectPosition,
-    pub height: Distance,
-    pub width: Distance,
-    pub tilt: Angle,
-    pub image: Image,
+pub trait Object<'a> {
+    type Image: Image<Pixel = ObjectPixel> + 'a;
+
+    fn position(&self) -> ObjectPosition;
+    fn height(&self) -> Distance;
+    fn width(&self) -> Distance;
+    fn tilt(&self) -> Angle;
+    fn image(&self) -> Self::Image;
 }
 
 pub struct CameraAngle {
@@ -132,11 +134,16 @@ pub struct RenderOutput<const WIDTH: usize, const HEIGHT: usize> {
 }
 
 impl Camera {
-    pub fn render<'a, const WIDTH: usize, const HEIGHT: usize>(
+    pub fn render<'a, const WIDTH: usize, const HEIGHT: usize, Obj, ObjIt, Bg>(
         &self,
-        background: impl Image<Pixel = RenderPixel>,
-        objects: impl Iterator<Item = Object<impl Image>>,
-    ) -> [[RenderPixel; WIDTH]; HEIGHT] {
+        background: Bg,
+        objects: ObjIt,
+    ) -> [[RenderPixel; WIDTH]; HEIGHT]
+    where
+        Obj: Object<'a>,
+        Bg: Image<Pixel = RenderPixel>,
+        ObjIt: Iterator<Item = Obj>,
+    {
         use std::array::from_fn as array;
         let image: [[RenderPixel; WIDTH]; HEIGHT] = array(|height| {
             array(|width| {
@@ -146,12 +153,10 @@ impl Camera {
                 }))
             })
         });
-        let mut objects = objects
-            .collect::<Vec<_>>();
-        let dist = |obj: &Object<_>| *obj.position.distance(&self.position).0.read();
+        let mut objects = objects.collect::<Vec<_>>();
+        let dist = |obj: &Obj| *obj.position().distance(&self.position).0.read();
         objects.sort_by(|a, b| dist(a).total_cmp(&dist(b)));
-        for object in objects {
-        }
+        for object in objects {}
         image
     }
 }
