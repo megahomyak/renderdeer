@@ -63,7 +63,6 @@ mod angle {
 }
 pub use angle::Angle;
 
-#[derive(Clone, Copy)]
 pub struct ObjectPixel {
     pub red: UnitInterval,
     pub green: UnitInterval,
@@ -78,7 +77,7 @@ pub struct ObjectPosition {
 }
 
 impl ObjectPosition {
-    pub fn distance(&self, other: Self) -> Distance {
+    pub fn distance(&self, other: &Self) -> Distance {
         let x = (self.x.0 - other.x.0).abs();
         let y = (self.y.0 - other.y.0).abs();
         let z = (self.z.0 - other.z.0).abs();
@@ -99,12 +98,12 @@ pub trait Image {
     fn pixel(&self, position: FromTopLeft<PixelPosition>) -> Self::Pixel;
 }
 
-pub struct Object<ImageGetter> {
+pub struct Object<Image> {
     pub position: ObjectPosition,
     pub height: Distance,
     pub width: Distance,
     pub tilt: Angle,
-    pub image_getter: ImageGetter,
+    pub image: Image,
 }
 
 pub struct CameraAngle {
@@ -122,7 +121,6 @@ pub struct Camera {
     pub tilt: Angle,
 }
 
-#[derive(Clone, Copy)]
 pub struct RenderPixel {
     pub red: UnitInterval,
     pub green: UnitInterval,
@@ -137,8 +135,8 @@ impl Camera {
     pub fn render<'a, const Width: usize, const Height: usize, ObjectImage: Image<Pixel = ObjectPixel>>(
         &self,
         background: impl Image<Pixel = RenderPixel>,
-        objects: impl Iterator<Item = Object<impl ImageGetter<Image = ObjectImage>>>,
-    ) -> RenderOutput<Width, Height> {
+        objects: impl Iterator<Item = Object<impl Image>>,
+    ) -> [[RenderPixel; Width]; Height] {
         use std::array::from_fn as array;
         let image: [[RenderPixel; Width]; Height] = array(|height| {
             array(|width| {
@@ -148,12 +146,12 @@ impl Camera {
                 }))
             })
         });
-        let objects = objects
+        let mut objects = objects
             .collect::<Vec<_>>();
-        let dist = |obj: &Object<_>| obj.position.distance(self.position).0.read();
-        objects.sort_by(|a, b| dist(a).total_cmp(dist(b)));
+        let dist = |obj: &Object<_>| *obj.position.distance(&self.position).0.read();
+        objects.sort_by(|a, b| dist(a).total_cmp(&dist(b)));
         for object in objects {
-            object.image_getter.image(CameraToObjectRelation { camera: self })
         }
+        image
     }
 }
