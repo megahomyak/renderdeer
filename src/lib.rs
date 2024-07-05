@@ -153,9 +153,10 @@ impl Camera {
                 }))
             })
         });
-        let mut objects = objects.collect::<Vec<_>>();
-        let dist = |obj: &Obj| *obj.position().distance(&self.position).0.read();
-        objects.sort_by(|a, b| dist(a).total_cmp(&dist(b)));
+        let mut objects = objects
+            .map(|obj| (obj.position().distance(&self.position), obj))
+            .collect::<Vec<_>>();
+        objects.sort_by(|(da, _), (db, _)| da.0.read().total_cmp(db.0.read()));
         for object in objects {}
         image
     }
