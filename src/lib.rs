@@ -95,7 +95,7 @@ pub struct PixelPosition {
 pub trait Image {
     type Pixel;
 
-    fn pixel(&self, position: FromTopLeft<PixelPosition>) -> Self::Pixel;
+    fn pixel(&self, position_getter: impl Fn() -> FromTopLeft<PixelPosition>) -> Self::Pixel;
 }
 
 pub struct Object<Image> {
@@ -140,18 +140,18 @@ impl Camera {
         use std::array::from_fn as array;
         let image: [[RenderPixel; WIDTH]; HEIGHT] = array(|height| {
             array(|width| {
-                background.pixel(FromTopLeft(PixelPosition {
-                    x: UnitInterval::new(width as f64 / WIDTH as f64).unwrap(),
-                    y: UnitInterval::new(height as f64 / HEIGHT as f64).unwrap(),
-                }))
+                background.pixel(|| {
+                    FromTopLeft(PixelPosition {
+                        x: UnitInterval::new(width as f64 / WIDTH as f64).unwrap(),
+                        y: UnitInterval::new(height as f64 / HEIGHT as f64).unwrap(),
+                    })
+                })
             })
         });
-        let mut objects = objects
-            .collect::<Vec<_>>();
+        let mut objects = objects.collect::<Vec<_>>();
         let dist = |obj: &Object<_>| *obj.position.distance(&self.position).0.read();
         objects.sort_by(|a, b| dist(a).total_cmp(&dist(b)));
-        for object in objects {
-        }
+        for object in objects {}
         image
     }
 }
