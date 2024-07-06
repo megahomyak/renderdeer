@@ -1,0 +1,67 @@
+== Getting the closest block ==
+
+Let's downgrade to 2D.
+From that, let's downgrade to 1D.
+
+1D:
+
+input: origin(x), direction(x)
+output: block(x)
+
+   +-- idx: -2
+   |           +-- idx: 1
+   V           V
+ |===|===|===|===|   |   |   |
+ |   |   | X |   | * |   |   |
+-2  -1   0   1   2   3   4   5
+        ^
+        +-- origin(2.5)
+^
++-- direction(0.5)
+
+fn find_solid_2d(origin, direction, row) {
+    let block;
+    if origin > direction {
+        // We need to go smaller
+        let block_idx = origin.floor() - 1;
+        do {
+            block = row.get(block_idx) or {
+                return None;
+            };
+            block_idx--;
+        } while (block != SOLID);
+    } else {
+        // There is no case where origin == direction
+        // We need to go bigger
+        let block_idx = (origin + 1).floor();
+        do {
+            block = row.get(block_idx) or {
+                return None;
+            };
+            block_idx++;
+        } while (block != SOLID);
+    }
+    return Some(block);
+}
+
+-----
+
+Now let's try to do that with 2d
+
++-+-+-+-+
+| |S|X| |
++-+-+-+-+
+| | |S| | <-- should hit the left wall of this solid in the middle
++-+-+-+-+
+| |*| |S|
++-+-+-+-+
+| | | | |
++-+-+-+-+
+
+Probably just an iterator over ray hits sorted by distance (ascending)
+
+/* OLD ALGORITHM DRAFT
+fn find_solid_2d(origin, direction, grid) {
+    let solid_idx_x = calc_1d(grid.row_at(origin.x));
+}
+*/
