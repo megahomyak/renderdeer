@@ -60,6 +60,83 @@ Now let's try to do that with 2d
 
 Probably just an iterator over ray hits sorted by distance (ascending)
 
+y = kx + b -- just any line
+
+x = const -- verticals (grid)
+y = const -- horizontals (grid)
+
+k = dy / dx
+origin(x, y)
+direction(x, y)
+dy = origin.y - direction.y
+dx = origin.x - direction.x
+
+b = y - kx
+
+target_x (when there's a vertical line):
+    distance_x = target_x - origin.x // Distance from the origin point to the line
+    y_destination = distance_x*(dy/dx) + origin.y
+    return 0 < y_destination <= 1
+
+target_y (when there's a horizontal line):
+    distance_y = target_y - origin.y
+    x_destination = distance_y*(dx/dy) + origin.x
+    return 0 < y_destination <= 1
+
++-+
+| |
++-+
+
++---------- // This way of representing the grid due to using array indexes
+|...   V y (first index)
+|...
+|...
+|
+| > x (second index)
+
+ |
+-+-
+ |* -- we're working here
+
+The first one (in the corner) is (0;0) =>
+
++----------
+|..
+|..
+|.(1;2)
+|
+
+Let's say we're in (1.5 -- x;1.5 -- y)
+
++-+-+-+
+| | | |
++-+-+-+
+| |w| | -- we're at the "w"
++-+-+-+
+| | | |
++-+-+-+
+
+Top: floor(y)
+Bottom: floor(y) + 1
+Left: floor(x)
+Right: floor(x) + 1
+
+```
+from dataclasses import dataclass
+
+@dataclass
+class Point:
+    x: float
+    y: float
+
+@dataclass
+class Ray:
+    origin: Point
+    direction: Point
+
+... # Not math!
+```
+
 /* OLD ALGORITHM DRAFT
 fn find_solid_2d(origin, direction, grid) {
     let solid_idx_x = calc_1d(grid.row_at(origin.x));
