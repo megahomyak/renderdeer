@@ -27,8 +27,7 @@ impl ObjectPosition {
     }
 }
 
-pub struct FromTopLeft<T>(pub T);
-pub struct PixelPosition {
+pub struct PixelPositionFromTopLeft {
     pub x: UnitInterval,
     pub y: UnitInterval,
 }
@@ -36,17 +35,14 @@ pub struct PixelPosition {
 pub trait Image {
     type Pixel;
 
-    fn pixel(&self, position: FromTopLeft<PixelPosition>) -> Self::Pixel;
+    fn pixel(&self, position: PixelPositionFromTopLeft) -> Self::Pixel;
 }
 
-pub trait Object<'a> {
-    type Image: Image<Pixel = ObjectPixel> + 'a;
-
-    fn position(&self) -> ObjectPosition;
-    fn height(&self) -> Distance;
-    fn width(&self) -> Distance;
-    fn tilt(&self) -> Radians;
-    fn image(&self, angle_difference: Radians) -> Self::Image;
+pub struct Object<I: Image<Pixel = ObjectPixel>> {
+    pub position: ObjectPosition,
+    pub height: Distance,
+    pub width: Distance,
+    pub image: I,
 }
 
 pub struct CameraAngle {
@@ -61,7 +57,6 @@ pub struct Camera {
     pub width: Distance,
     pub height: Distance,
     pub angle: CameraAngle,
-    pub tilt: Radians,
 }
 
 pub struct RenderPixel {
@@ -99,30 +94,33 @@ fn rotate(x: Position, y: Position, angle: Radians) -> (Position, Position) {
 }
 
 impl Camera {
-    pub fn render<'a, const WIDTH: usize, const HEIGHT: usize, Obj, ObjIt, Bg>(
+    pub fn render<'a, const WIDTH: usize, const HEIGHT: usize, ObjImg, ObjIt, Bg>(
         &self,
         background: Bg,
         objects: ObjIt,
     ) -> [[RenderPixel; WIDTH]; HEIGHT]
     where
-        Obj: Object<'a>,
+        ObjImg: Image<Pixel = ObjectPixel>,
         Bg: Image<Pixel = RenderPixel>,
-        ObjIt: Iterator<Item = Obj>,
+        ObjIt: Iterator<Item = Object<ObjImg>>,
     {
         use std::array::from_fn as array;
-        let image: [[RenderPixel; WIDTH]; HEIGHT] = array(|height| {
-            array(|width| {
-                background.pixel(FromTopLeft(PixelPosition {
-                    x: UnitInterval(width as f64 / WIDTH as f64),
-                    y: UnitInterval(height as f64 / HEIGHT as f64),
-                }))
-            })
-        });
         let mut objects = objects
-            .map(|obj| (obj.position().distance(&self.position), obj))
+            .map(|obj| (obj.position.distance(&self.position), obj))
             .collect::<Vec<_>>();
         objects.sort_by(|(da, _), (db, _)| da.0.total_cmp(&db.0));
-        for (distance, object) in objects {}
-        image
+        array(|height| {
+            array(|width| {
+                let pixel = background.pixel(PixelPositionFromTopLeft {
+                    x: UnitInterval(width as f64 / WIDTH as f64),
+                    y: UnitInterval(height as f64 / HEIGHT as f64),
+                });
+                for (distance, object) in &objects {
+                    todo!();
+                    pixel = pixel.overlay_with();
+                }
+                pixel
+            })
+        })
     }
 }
