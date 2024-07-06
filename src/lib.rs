@@ -57,7 +57,7 @@ mod angle {
         }
 
         pub fn turn_right(&mut self, amount: Unsigned<f64>) {
-            self.0 = UnitInterval::new((self.0.read() - amount.read()).fract()).unwrap();
+            self.0 = UnitInterval::new((self.0.read() - amount.read()).fract().abs()).unwrap();
         }
     }
 }
@@ -127,6 +127,19 @@ pub struct RenderPixel {
     pub red: UnitInterval,
     pub green: UnitInterval,
     pub blue: UnitInterval,
+}
+
+impl RenderPixel {
+    pub fn overlay_with(&self, object_pixel: ObjectPixel) -> RenderPixel {
+        // new_red = foreground.red * foreground.opacity + background.red * (1 - foreground.opacity)
+        // fg_red * fg_a + bg_red * (1 - fg_a)
+        // fg_red * fg_a + bg_red - bg_red * fg_a
+        // fg_red * fg_a - bg_red * fg_a + bg_red
+        // fg_a * (fg_red - bg_red) + bg_red
+        RenderPixel {
+            red: UnitInterval::new().unwrap()
+        }
+    }
 }
 
 pub struct RenderOutput<const WIDTH: usize, const HEIGHT: usize> {
