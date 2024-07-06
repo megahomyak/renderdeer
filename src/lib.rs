@@ -1,131 +1,8 @@
-mod finite_f64 {
-    pub struct FiniteF64(f64);
-
-    impl From<FiniteF64> for f64 {
-        fn from(value: FiniteF64) -> Self {
-            value.0
-        }
-    }
-
-    impl FiniteF64 {
-        pub fn new(v: f64) -> Option<FiniteF64> {
-            if v.is_finite() {
-                Some(Self(v))
-            } else {
-                None
-            }
-        }
-    }
-}
-pub use finite_f64::FiniteF64;
-
-mod position {
-    use super::*;
-    pub struct Position(FiniteF64);
-    impl From<Position> for f64 {
-        fn from(value: Position) -> Self {
-            value.0.into()
-        }
-    }
-    impl From<Position> for FiniteF64 {
-        fn from(value: Position) -> Self {
-            value.0
-        }
-    }
-    impl Position {
-        pub fn new(v: FiniteF64) -> Self {
-            Self(v)
-        }
-    }
-}
-pub use position::Position;
-
-mod distance {
-    use super::*;
-    pub struct Distance(Unsigned<FiniteF64>);
-    impl From<Distance> for Unsigned {
-        fn from(value: Distance) -> Self {
-            value.0
-        }
-    }
-    impl Distance {
-        pub fn read(&self) -> f64 {
-            self.0.read()
-        }
-        pub fn new(v: Unsigned<FiniteF64>) -> Self {
-            Self(v)
-        }
-    }
-}
-pub use distance::Distance;
-
-mod unit_interval {
-    use super::*;
-
-    pub struct UnitInterval(FiniteF64);
-
-    impl UnitInterval {
-        pub fn new(v: FiniteF64) -> Option<Self> {
-            if v.read() >= 0.0 && v.read() <= 1.0 {
-                Some(Self(v))
-            } else {
-                None
-            }
-        }
-
-        pub fn read(&self) -> f64 {
-            self.0.read()
-        }
-    }
-}
-pub use unit_interval::UnitInterval;
-
-mod unsigned {
-    use super::*;
-
-    pub struct Unsigned<N>(N);
-
-    impl Unsigned<FiniteF64> {
-        pub fn new(v: FiniteF64) -> Option<Self> {
-            if v.read() >= 0.0 {
-                Some(Self(v))
-            } else {
-                None
-            }
-        }
-
-        pub fn read(&self) -> f64 {
-            self.0.read()
-        }
-    }
-}
-pub use unsigned::Unsigned;
-
-mod angle {
-    use super::*;
-
-    pub struct Angle(UnitInterval);
-
-    impl Angle {
-        pub fn read(&self) -> f64 {
-            self.0.read()
-        }
-
-        pub fn turn_left(&mut self, amount: Unsigned<FiniteF64>) {
-            self.0 =
-                UnitInterval::new(FiniteF64::new((self.0.read() + amount.read()).fract()).unwrap())
-                    .unwrap();
-        }
-
-        pub fn turn_right(&mut self, amount: Unsigned<FiniteF64>) {
-            self.0 = UnitInterval::new(
-                FiniteF64::new((self.0.read() - amount.read()).fract().abs()).unwrap(),
-            )
-            .unwrap();
-        }
-    }
-}
-pub use angle::Angle;
+pub struct UnitInterval(pub f64);
+pub struct Position(pub f64);
+pub struct UnsignedF64(pub f64);
+pub struct Distance(pub f64);
+pub struct Radians(pub f64);
 
 pub struct ObjectPixel {
     pub red: UnitInterval,
@@ -142,11 +19,11 @@ pub struct ObjectPosition {
 
 impl ObjectPosition {
     pub fn distance(&self, other: &Self) -> Distance {
-        let x = (self.x.read() - other.x.read()).abs();
-        let y = (self.y.read() - other.y.read()).abs();
-        let z = (self.z.read() - other.z.read()).abs();
+        let x = (self.x.0 - other.x.0).abs();
+        let y = (self.y.0 - other.y.0).abs();
+        let z = (self.z.0 - other.z.0).abs();
 
-        Distance::new(Unsigned::new(FiniteF64::new(x.hypot(y).hypot(z)).unwrap()).unwrap())
+        Distance(x.hypot(y).hypot(z))
     }
 }
 
@@ -168,13 +45,13 @@ pub trait Object<'a> {
     fn position(&self) -> ObjectPosition;
     fn height(&self) -> Distance;
     fn width(&self) -> Distance;
-    fn tilt(&self) -> Angle;
-    fn image(&self, angle_difference: Angle) -> Self::Image;
+    fn tilt(&self) -> Radians;
+    fn image(&self, angle_difference: Radians) -> Self::Image;
 }
 
 pub struct CameraAngle {
-    pub x: Angle,
-    pub y: Angle,
+    pub x: Radians,
+    pub y: Radians,
 }
 
 pub struct Camera {
@@ -184,7 +61,7 @@ pub struct Camera {
     pub width: Distance,
     pub height: Distance,
     pub angle: CameraAngle,
-    pub tilt: Angle,
+    pub tilt: Radians,
 }
 
 pub struct RenderPixel {
@@ -197,15 +74,10 @@ impl RenderPixel {
     pub fn overlay_with(&self, object_pixel: ObjectPixel) -> RenderPixel {
         macro_rules! mix {
             ($color:ident) => {
-                UnitInterval::new(
-                    FiniteF64::new(
-                        (object_pixel.$color.read() * object_pixel.opacity.read()
-                            + self.$color.read() * (1.0 - object_pixel.opacity.read()))
-                        .clamp(0.0, 1.0),
-                    )
-                    .unwrap(),
+                UnitInterval(
+                    object_pixel.$color.0 * object_pixel.opacity.0
+                        + self.$color.0 * (1.0 - object_pixel.opacity.0),
                 )
-                .unwrap()
             };
         }
         RenderPixel {
@@ -220,14 +92,10 @@ pub struct RenderOutput<const WIDTH: usize, const HEIGHT: usize> {
     pub image: [[RenderPixel; WIDTH]; HEIGHT],
 }
 
-fn rotate(x: FiniteF64, y: FiniteF64, angle: Angle) -> (FiniteF64, FiniteF64) {
-    let pi_angle = angle.read() * 2.0 * std::f64::consts::PI;
-    let new_x = x.read() * pi_angle.cos() - y.read() * pi_angle.sin();
-    let new_y = x.read() * pi_angle.sin() + y.read() * pi_angle.cos();
-    (
-        FiniteF64::new(new_x).unwrap(),
-        FiniteF64::new(new_y).unwrap(),
-    )
+fn rotate(x: Position, y: Position, angle: Radians) -> (Position, Position) {
+    let new_x = x.0 * angle.0.cos() - y.0 * angle.0.sin();
+    let new_y = x.0 * angle.0.sin() + y.0 * angle.0.cos();
+    (Position(new_x), Position(new_y))
 }
 
 impl Camera {
@@ -245,20 +113,16 @@ impl Camera {
         let image: [[RenderPixel; WIDTH]; HEIGHT] = array(|height| {
             array(|width| {
                 background.pixel(FromTopLeft(PixelPosition {
-                    x: UnitInterval::new(FiniteF64::new(width as f64 / WIDTH as f64).unwrap())
-                        .unwrap(),
-                    y: UnitInterval::new(FiniteF64::new(height as f64 / HEIGHT as f64).unwrap())
-                        .unwrap(),
+                    x: UnitInterval(width as f64 / WIDTH as f64),
+                    y: UnitInterval(height as f64 / HEIGHT as f64),
                 }))
             })
         });
         let mut objects = objects
             .map(|obj| (obj.position().distance(&self.position), obj))
             .collect::<Vec<_>>();
-        objects.sort_by(|(da, _), (db, _)| da.read().total_cmp(&db.read()));
-        for (distance, object) in objects {
-            rotate(distance.read())
-        }
+        objects.sort_by(|(da, _), (db, _)| da.0.total_cmp(&db.0));
+        for (distance, object) in objects {}
         image
     }
 }
