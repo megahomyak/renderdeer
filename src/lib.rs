@@ -131,13 +131,20 @@ pub struct RenderPixel {
 
 impl RenderPixel {
     pub fn overlay_with(&self, object_pixel: ObjectPixel) -> RenderPixel {
-        // new_red = foreground.red * foreground.opacity + background.red * (1 - foreground.opacity)
-        // fg_red * fg_a + bg_red * (1 - fg_a)
-        // fg_red * fg_a + bg_red - bg_red * fg_a
-        // fg_red * fg_a - bg_red * fg_a + bg_red
-        // fg_a * (fg_red - bg_red) + bg_red
+        macro_rules! mix {
+            ($color:ident) => {
+                UnitInterval::new(
+                    (object_pixel.$color.read() * object_pixel.opacity.read()
+                        + self.$color.read() * (1.0 - object_pixel.opacity.read()))
+                    .clamp(0.0, 1.0),
+                )
+                .unwrap()
+            };
+        }
         RenderPixel {
-            red: UnitInterval::new().unwrap()
+            red: mix!(red),
+            green: mix!(green),
+            blue: mix!(blue),
         }
     }
 }
